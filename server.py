@@ -6,8 +6,6 @@ from twisted.internet           import reactor
 from twisted.internet.protocol  import Factory
 from twisted.internet.endpoints import TCP4ServerEndpoint
 
-acceptors = []
-
 class PrepareCommand(amp.Command):
     arguments = [("proposal", amp.Integer())]
     response  = [("res", amp.String())]
@@ -17,6 +15,7 @@ class WriteCommand(amp.Command):
     response  = [("response", amp.String())]
 
 class ControlProtocol(amp.AMP):
+
     def write(self, key, value):
         for a in acceptors:
             a.prepare()
@@ -26,15 +25,25 @@ class ControlProtocol(amp.AMP):
     WriteCommand.responder(write)
 
 class LeaderProtocol(amp.AMP):
+    def __init__(self, acceptors):
+        super(LeaderProtocol, self).__init__()
+        self._acceptors = acceptors
+
     def connectionMade(self):
-        acceptors.append(self)
+        self._acceptors.append(self)
 
     def connectionLost(self, reason):
-        acceptors.remove(self)
+        self._acceptors.remove(self)
 
     def prepare(self):
         self.callRemote(PrepareCommand, proposal = 0)
 
+class LeaderFactory(Factory):
+    def __init__(self, acceptors):
+        self._acceptors = acceptors
+
+    def buildProtocol(self, addr):
+        return LeaderProtocol(acceptors)
 
 if __name__ == "__main__":
     startLogging(stdout)
@@ -49,5 +58,4 @@ if __name__ == "__main__":
     ctrle = TCP4ServerEndpoint(reactor, 8751)
     ctrle.listen(ctrlf)
 
-    # reactor.callLater(1, lambda: factory.write("the_first_value", "O.o"))
     reactor.run()
