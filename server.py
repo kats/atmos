@@ -6,23 +6,18 @@ from twisted.internet           import reactor
 from twisted.internet.protocol  import Factory
 from twisted.internet.endpoints import TCP4ServerEndpoint
 
-class PrepareCommand(amp.Command):
-    arguments = [("proposal", amp.Integer())]
-    response  = [("res", amp.String())]
-
-class WriteCommand(amp.Command):
-    arguments = [("key", amp.String()), ("value", amp.String())]
-    response  = [("response", amp.String())]
+import commands
 
 class ControlProtocol(amp.AMP):
 
+    @commands.WriteCommand.responder
     def write(self, key, value):
-        for a in acceptors:
-            a.prepare()
-
-        return {"response" : "write request: " + key + " : " + value}
-        
-    WriteCommand.responder(write)
+        a = acceptors[0]
+        d = a.prepare()
+        def formatResponse(p):
+            return {"response" : str(p)}
+        d.addCallback(formatResponse)
+        return d
 
 class LeaderProtocol(amp.AMP):
     def __init__(self, acceptors):
@@ -36,26 +31,24 @@ class LeaderProtocol(amp.AMP):
         self._acceptors.remove(self)
 
     def prepare(self):
-        self.callRemote(PrepareCommand, proposal = 0)
+        return self.callRemote(commands.PrepareCommand, proposal = 0)
 
 class LeaderFactory(Factory):
     def __init__(self, acceptors):
         self._acceptors = acceptors
 
     def buildProtocol(self, addr):
-        return LeaderProtocol(acceptors)
+        return LeaderProtocol(self._acceptors)
 
 if __name__ == "__main__":
+    acceptors = []
+
     startLogging(stdout)
 
-    leaderf = Factory()
-    leaderf.protocol = LeaderProtocol
-    leadere = TCP4ServerEndpoint(reactor, 8750)
-    leadere.listen(leaderf)
+    TCP4ServerEndpoint(reactor, 8750).listen(LeaderFactory(acceptors))
     
     ctrlf = Factory()
     ctrlf.protocol = ControlProtocol
-    ctrle = TCP4ServerEndpoint(reactor, 8751)
-    ctrle.listen(ctrlf)
+    TCP4ServerEndpoint(reactor, 8751).listen(ctrlf)
 
     reactor.run()

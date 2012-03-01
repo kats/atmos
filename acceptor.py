@@ -6,14 +6,16 @@ from twisted.internet           import reactor
 from twisted.internet.protocol  import Factory
 from twisted.internet.endpoints import TCP4ClientEndpoint
 
-from server import PrepareCommand, LeaderProtocol
+import commands
 
 class AcceptorProtocol(amp.AMP):
+    @commands.PrepareCommand.responder
     def prepare(self, proposal):
         print "prepare with proposal %d" % proposal
-        return {"res" : "ok"}
-
-    PrepareCommand.responder(prepare)
+        return {
+            "has_higher" : False,
+            "proposal"   : 0,
+            "value"      : ""}
 
 
 def connect():
@@ -22,9 +24,8 @@ def connect():
     factory.protocol = AcceptorProtocol
     return endpoint.connect(factory)
 
-def on_connect(p):
+def on_connect():
     pass
-    #return p.callRemote(WriteCommand, key="test_key", value="0")
 
 def on_response(r):
     print r

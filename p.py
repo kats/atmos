@@ -6,7 +6,7 @@ from twisted.internet           import reactor
 from twisted.internet.protocol  import Factory
 from twisted.internet.endpoints import TCP4ClientEndpoint
 
-from server import WriteCommand
+import commands
 
 def connect():
     endpoint = TCP4ClientEndpoint(reactor, "127.0.0.1", 8751)
@@ -15,7 +15,7 @@ def connect():
     return endpoint.connect(factory)
 
 def on_connect(p):
-    return p.callRemote(WriteCommand, key="test_key", value="0")
+    return p.callRemote(commands.WriteCommand, key="test_key", value="0")
 
 def on_response(r):
     print r
